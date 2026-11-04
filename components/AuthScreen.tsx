@@ -55,7 +55,7 @@ export function AuthScreen() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
-        <div className="brand"><span className="logo">AX</span><strong>AXBI CRM</strong></div>
+        <div className="brand"><span className="wordmark">AXBI</span><strong>CRM</strong></div>
         <h1>{titles[mode]}</h1>
         {error && <div className="alert error" role="alert">{error}</div>}
         {message && <div className="alert success" role="status">{message}</div>}
