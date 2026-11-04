@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { errorMessage, getSupabase, supabaseEnabled } from "@/lib/supabase";
 
 type Info = { name: string; privacy_policy_url: string | null };
 
-export default function PublicForm({ params }: { params: { slug: string } }) {
-  const [info, setInfo] = useState<Info | null | undefined>(undefined);
+export default function PublicForm() {
+  const slug = String(useParams<{ slug: string }>()?.slug ?? "");
+  const [info, setInfo] = useState<Info | null | undefined>(supabaseEnabled ? undefined : null);
   const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", pain: "", website: "" });
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
@@ -26,11 +28,11 @@ export default function PublicForm({ params }: { params: { slug: string } }) {
   }, []);
 
   useEffect(() => {
-    if (!supabaseEnabled) { setInfo(null); return; }
-    getSupabase().rpc("crm_public_form_info", { p_slug: params.slug }).then(({ data }) => {
+    if (!supabaseEnabled) return;
+    getSupabase().rpc("crm_public_form_info", { p_slug: slug }).then(({ data }) => {
       setInfo(Array.isArray(data) && data.length ? (data[0] as Info) : null);
     });
-  }, [params.slug]);
+  }, [slug]);
 
   if (info === undefined) return <div className="center-screen muted">Carregando...</div>;
   if (info === null) return <div className="center-screen"><div className="auth-card"><h1>Formulário indisponível</h1><p className="muted">Este link não está ativo.</p></div></div>;
@@ -45,7 +47,7 @@ export default function PublicForm({ params }: { params: { slug: string } }) {
     const query = new URLSearchParams(window.location.search);
     const campaign = query.get("campanha") ?? query.get("utm_campaign") ?? "";
     const { error } = await getSupabase().rpc("crm_submit_public_lead", {
-      p_slug: params.slug, p_name: form.name, p_email: form.email, p_phone: form.phone,
+      p_slug: slug, p_name: form.name, p_email: form.email, p_phone: form.phone,
       p_company: form.company, p_pain: form.pain, p_consent: consent, p_consent_text: consentText,
       p_website: form.website, p_campaign: campaign.slice(0, 200)
     });

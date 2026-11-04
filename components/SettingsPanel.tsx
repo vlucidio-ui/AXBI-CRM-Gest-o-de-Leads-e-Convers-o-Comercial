@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { errorMessage, getSupabase } from "@/lib/supabase";
 import type { Organization } from "@/lib/types";
 
@@ -13,11 +13,18 @@ export function SettingsPanel({ organization, onChanged }: { organization: Organ
   const [message, setMessage] = useState("");
   const formUrl = typeof window !== "undefined" ? `${window.location.origin}/f/${organization.slug}` : "";
 
+  // Carrega o link da política de privacidade já salvo.
+  useEffect(() => {
+    let cancelled = false;
+    getSupabase().from("crm_organizations").select("privacy_policy_url").eq("id", organization.id).single()
+      .then(({ data }) => { if (!cancelled && data?.privacy_policy_url) setPrivacyUrl(data.privacy_policy_url); });
+    return () => { cancelled = true; };
+  }, [organization.id]);
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setMessage("");
-    const patch: Record<string, unknown> = { name, public_form_enabled: enabled };
-    if (privacyUrl) patch.privacy_policy_url = privacyUrl;
+    const patch = { name, public_form_enabled: enabled, privacy_policy_url: privacyUrl.trim() || null };
     const { error } = await getSupabase().from("crm_organizations").update(patch).eq("id", organization.id);
     if (error) return setError(errorMessage(error));
     setMessage("Configurações salvas.");

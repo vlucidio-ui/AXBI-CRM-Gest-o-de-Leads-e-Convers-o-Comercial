@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { errorMessage, getSupabase, supabaseEnabled } from "@/lib/supabase";
 
@@ -38,7 +39,7 @@ export default function ResetPassword() {
         {!supabaseEnabled && <div className="alert error">Supabase não configurado.</div>}
         {error && <div className="alert error" role="alert">{error}</div>}
         {done ? (
-          <div className="alert success">Senha alterada. <a href="/">Ir para o CRM</a></div>
+          <div className="alert success">Senha alterada. <Link href="/">Ir para o CRM</Link></div>
         ) : !ready ? (
           <p className="muted">Validando o link de recuperação... Se nada acontecer, solicite um novo link.</p>
         ) : (

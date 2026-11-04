@@ -1,6 +1,6 @@
 # AXBI CRM — V1.2
 
-CRM comercial da AXBI Negócios Inteligentes: Next.js 14, React 18 e Supabase (Auth + PostgreSQL com RLS).
+CRM comercial da AXBI Negócios Inteligentes: Next.js 16, React 19 e Supabase (Auth + PostgreSQL com RLS).
 
 ## Funcionalidades
 
@@ -26,7 +26,7 @@ CRM comercial da AXBI Negócios Inteligentes: Next.js 14, React 18 e Supabase (A
 
 ## Rodar localmente
 
-Requisitos: Node.js 20 ou 22 e npm.
+Requisitos: Node.js 20.9 ou superior (recomendado 22) e npm.
 
 ```bash
 npm install
@@ -93,7 +93,7 @@ Depois de ativar o formulário em **Configurações**, cole no site, onde ele de
 npm test               # regras de negócio + verificações estáticas das migrations
 npm run check:syntax   # sintaxe TS/TSX
 npm run typecheck      # tipos
-npm run lint
+npm run lint           # ESLint (configuração em eslint.config.mjs)
 npm run build
 npm run test:db        # migrations + RLS num Postgres DESCARTÁVEL (exige DATABASE_URL)
 npm run test:e2e       # navegador; exige o app rodando (npm start) e o pacote playwright
