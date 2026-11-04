@@ -1,87 +1,110 @@
-# AXBI CRM — V1.1
+# AXBI CRM — V1.2
 
-CRM comercial inicial da AXBI Negócios Inteligentes. Esta entrega mantém a aplicação simples e leve: Next.js 14, React 18 e Supabase/PostgreSQL preparado para integração.
+CRM comercial da AXBI Negócios Inteligentes: Next.js 14, React 18 e Supabase (Auth + PostgreSQL com RLS).
 
-## Funcionalidades disponíveis
+## Funcionalidades
 
-- Dashboard com indicadores calculados a partir dos leads.
-- Cadastro, edição e exclusão de leads.
-- Pipeline Kanban com todas as etapas, inclusive Perdido e Nutrição.
-- Busca por contato, empresa, e-mail, telefone, canal, campanha e necessidade.
-- Filtro por etapa.
-- Follow-ups e identificação de ações atrasadas.
-- Visão de origem por canal.
-- Exportação de leads em CSV (separador `; `, UTF-8 com BOM).
-- Persistência local no navegador via `localStorage`.
-- Validação dos dados recuperados do navegador para evitar carregar estruturas inválidas.
-- Identificadores de lead com UUID quando disponível.
+- **Painel** com indicadores calculados a partir dos leads e gráfico por etapa.
+- **Cadastro, edição e exclusão** de leads, com validação.
+- **Pipeline Kanban** com as 10 etapas (arrastar e soltar no computador; seletor de etapa no celular).
+- **Busca** por contato, empresa, e-mail, telefone, canal, campanha e necessidade; **filtro por etapa**.
+- **Follow-ups** ordenados por data, com destaque para atrasados e do dia.
+- **Origens**: leads, conversão e receita por canal.
+- **Exportação CSV** (separador `;`, UTF-8 com BOM, fórmulas neutralizadas).
+- **Login** com e-mail e senha, cadastro e recuperação de senha (Supabase Auth).
+- **Organizações e equipe** com papéis: Proprietário, Administrador, Vendedor e Somente leitura.
+- **Isolamento por organização** garantido no banco (RLS) e histórico de mudança de etapa.
+- **Formulário público** de captação (`/f/<slug>`) com consentimento LGPD registrado, campo-armadilha antispam e limites de envio.
 - Layout responsivo.
 
-## Limite funcional e de segurança
+## Dois modos de execução
 
-**Ainda não é uma aplicação de produção.** Os dados ficam somente no navegador e não são compartilhados entre pessoas ou dispositivos. Não há autenticação, conexão ativa com Supabase, sincronização, formulário público, WhatsApp ou integração de redes sociais. Não cadastrar dados reais, pessoais ou confidenciais nesta versão.
+| Modo | Quando | Dados |
+|---|---|---|
+| Demonstração | `NEXT_PUBLIC_SUPABASE_*` vazias | Só no navegador (`localStorage`). Não usar com dados reais. |
+| Produção | Variáveis do Supabase preenchidas | Banco Supabase, login e equipe. |
 
-A exportação CSV neutraliza inícios de fórmula (`=`, `+`, `-`, `@`) para reduzir risco de execução de fórmulas ao abrir em planilhas. O CSV continua sendo um arquivo de dados, não um backup transacional.
+## Rodar localmente
 
-## Requisitos
-
-- Node.js 20 LTS ou 22 LTS.
-- npm.
-
-## Instalação local
+Requisitos: Node.js 20 ou 22 e npm.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abra `http://localhost:3000`.
+Abra `http://localhost:3000`. Sem configurar nada, o CRM abre em modo demonstração.
+
+## Colocar em produção
+
+### 1. Supabase
+
+1. Crie um projeto em [supabase.com](https://supabase.com) (região `sa-east-1`, São Paulo).
+2. No **SQL Editor**, rode os arquivos de `supabase/migrations/` **em ordem**:
+   - `20261103000100_crm_initial_schema.sql` — tabela de leads.
+   - `20261103000200_crm_tenant_security.sql` — organizações, membros, papéis, RLS e histórico.
+   - `20261104000300_crm_public_form.sql` — formulário público, consentimento e limites.
+
+   Ou, com a CLI: `supabase link --project-ref <ref>` e `supabase db push`.
+3. Em **Authentication → URL Configuration**, defina o *Site URL* com o endereço do site
+   (ex.: `https://crm.suaempresa.com.br`) e adicione `https://<seu-dominio>/auth/redefinir-senha` em *Redirect URLs*.
+4. Em **Authentication → Providers → Email**, mantenha a confirmação de e-mail ativa e defina senha mínima de 8 caracteres.
+5. Para e-mails confiáveis em produção, configure um SMTP próprio (Authentication → SMTP).
+6. Copie a **Project URL** e a **anon / publishable key** (Project Settings → API).
+
+### 2. Vercel (hospedagem)
+
+1. Em [vercel.com](https://vercel.com), importe este repositório do GitHub.
+2. Adicione as variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+3. Faça o deploy. Volte ao passo 1.3 com o domínio final.
+
+### 3. Primeiro acesso
+
+1. Abra o site, clique em **Criar conta**, confirme o e-mail e entre.
+2. Crie a organização (você vira Proprietário).
+3. Peça para a equipe criar a conta e adicione cada pessoa em **Equipe**.
+4. Em **Configurações**, ative o formulário público e informe o link da política de privacidade.
+   O link do formulário aparece na mesma tela (aceita `?campanha=nome`).
 
 ## Testes
 
 ```bash
-npm test
-npm run check:syntax
+npm test               # regras de negócio + verificações estáticas das migrations
+npm run check:syntax   # sintaxe TS/TSX
+npm run typecheck      # tipos
 npm run lint
 npm run build
+npm run test:db        # migrations + RLS num Postgres DESCARTÁVEL (exige DATABASE_URL)
+npm run test:e2e       # navegador; exige o app rodando (npm start) e o pacote playwright
 ```
 
-- `npm test`: testes unitários das regras de domínio e verificações estáticas das migrations com o test runner nativo do Node.
-- `npm run check:syntax`: transpila os arquivos TypeScript/TSX para detectar erros de sintaxe.
-- `npm run lint`: lint do Next.js.
-- `npm run build`: build de produção do Next.js.
+`test:db` apaga e recria o schema do banco apontado por `DATABASE_URL`. **Nunca** aponte para o Supabase.
+Ele simula o Supabase Auth e verifica, entre outros: uma organização não lê, altera nem exclui dados de outra;
+vendedor não exclui; leitor não edita; a organização não fica sem proprietário; anônimo não acessa tabelas;
+formulário exige consentimento, descarta robôs e limita envios.
 
-A aprovação dos dois primeiros comandos não substitui typecheck, lint, build, testes de navegador ou testes de banco.
+O GitHub Actions (`.github/workflows/ci.yml`) roda tudo isso a cada push e pull request.
 
-## Banco Supabase
+## Segurança
 
-- `supabase/migrations/20261103000100_crm_initial_schema.sql`: tabelas base.
-- `supabase/migrations/20261103000200_crm_tenant_security.sql`: organizações, membros, isolamento por organização, RLS e trilha de mudança de etapa.
-
-A segunda migration pressupõe Supabase Auth e o schema inicial. Ela ainda **não foi aplicada nem validada em um projeto Supabase real**. Faça backup e aplique primeiro em ambiente de desenvolvimento. A interface V1 ainda não usa essas tabelas; a aplicação da migration não conecta automaticamente o CRM ao banco.
-
-A primeira organização deve ser criada pela função `public.crm_create_organization(text)` com usuário autenticado. Não conceder acesso de `service_role` ao navegador e nunca colocar `service_role` em variáveis `NEXT_PUBLIC_*`.
-
-## Variáveis de ambiente
-
-Consulte `.env.example`. A conexão Supabase será implementada em etapa separada, depois da validação do modelo de autenticação e da camada de servidor. Não preencher variáveis com chaves fictícias.
-
-## Próximas etapas para produção
-
-1. Conectar Supabase Auth e recuperação de senha.
-2. Implementar organização ativa e papéis na camada de servidor.
-3. Trocar `localStorage` por persistência Supabase com RLS.
-4. Validar isolamento entre duas organizações e usuários com papéis distintos.
-5. Implementar formulário público com consentimento LGPD, antispam e limites.
-6. Automatizar testes E2E, observabilidade, backup e deploy.
+- O navegador usa apenas a chave pública; toda a autorização é feita pelo RLS no banco.
+- Nunca coloque a `service_role` em variáveis `NEXT_PUBLIC_*` nem no código do navegador (há teste que verifica).
+- O visitante anônimo só consegue chamar `crm_public_form_info` e `crm_submit_public_lead`.
+- Cabeçalhos de segurança configurados em `next.config.mjs`.
+- `crm_purge_form_submissions()` limpa o controle antispam com mais de 7 dias; agende com `pg_cron` se desejar.
 
 ## Métricas
 
-- Leads cadastrados: total de registros.
-- Em andamento: exclui Fechado e Perdido.
-- Qualificados: etapas a partir de Qualificado até Fechado.
-- Receita contratada: soma do valor potencial dos leads em Fechado; não equivale à receita contábil reconhecida.
-- Pipeline em negociação: soma de Proposta enviada e Negociação.
-- Taxa de fechamento: Fechado dividido por Proposta enviada + Negociação + Fechado + Perdido.
+- **Leads cadastrados**: total de registros.
+- **Em andamento**: exclui Fechado e Perdido.
+- **Qualificados**: de Qualificado até Fechado.
+- **Receita contratada**: soma do valor potencial em Fechado (não é receita contábil).
+- **Pipeline em negociação**: soma de Proposta enviada e Negociação.
+- **Taxa de fechamento**: Fechado ÷ (Proposta enviada + Negociação + Fechado + Perdido).
 
-As métricas são operacionais. CAC, LTV, receita reconhecida e atribuição de mídia ainda não estão implementados.
+## Próximas evoluções
+
+- Integração com WhatsApp e redes sociais.
+- Importação de planilhas.
+- CAC, LTV e atribuição de mídia.
+- Backups automáticos fora do Supabase (o plano pago do Supabase já faz backups diários).

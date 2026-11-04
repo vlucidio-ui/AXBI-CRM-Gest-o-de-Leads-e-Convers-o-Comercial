@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run check:syntax
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - name: Teste de ponta a ponta (navegador)
+        run: |
+          npm i --no-save playwright@1.48.2
+          npx playwright install --with-deps chromium
+          npm start &
+          npx --yes wait-on@8.0.1 http://localhost:3000
+          npm run test:e2e
+
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Migrations + testes de RLS
+        run: bash scripts/test-db.sh
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
