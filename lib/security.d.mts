@@ -1,0 +1,10 @@
+export const DEFAULT_EMBED_ORIGINS: string;
+export const TURNSTILE_ACTION: string;
+export function parseAllowedOrigins(value?: string): string[];
+export function clientIp(headers: Headers): string;
+export function ipHash(ip: string, secret: string): string;
+export function verifyTurnstile(args: { token: unknown; ip?: string; secret?: string; allowedHostnames?: string[];
+  fetchImpl?: typeof fetch; timeoutMs?: number }): Promise<{ ok: boolean; reason?: string; codes?: string[] }>;
+export function handlePublicLead(args: { payload: unknown; headers: Headers; requestOrigin: string;
+  env: Record<string, string | undefined>; fetchImpl?: typeof fetch }): Promise<{ status: number; body: { ok: boolean; error?: string } }>;
+export function corsHeaders(origin: string | null, env: Record<string, string | undefined>): Record<string, string>;
