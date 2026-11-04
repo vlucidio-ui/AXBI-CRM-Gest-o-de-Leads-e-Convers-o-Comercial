@@ -54,7 +54,9 @@ Abra `http://localhost:3000`. Sem configurar nada, o CRM abre em modo demonstra�
 
 ### 2. Vercel (hospedagem)
 
-1. Em [vercel.com](https://vercel.com), importe este repositório do GitHub.
+[![Deploy na Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvlucidio-ui%2FAXBI-CRM-Gest-o-de-Leads-e-Convers-o-Comercial&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY&envDescription=URL%20e%20chave%20p%C3%BAblica%20do%20Supabase&project-name=axbi-crm)
+
+1. Em [vercel.com](https://vercel.com), importe este repositório do GitHub (ou use o botão acima).
 2. Adicione as variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 3. Faça o deploy. Volte ao passo 1.3 com o domínio final.
 
