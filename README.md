@@ -45,6 +45,17 @@ Abra `http://localhost:3000`. Sem configurar nada, o CRM abre em modo demonstra�
    - `20261103000200_crm_tenant_security.sql` — organizações, membros, papéis, RLS e histórico.
    - `20261104000300_crm_public_form.sql` — formulário público, consentimento e limites.
    - `20261104000400_crm_public_form_phone.sql` — formulário aceita WhatsApp ou e-mail e guarda informações extras (ex.: regime tributário).
+   - `20261105000500_crm_privileges_hardening.sql` — menor privilégio (sem TRUNCATE/TRIGGER/REFERENCES para a API).
+   - `20261105000600_crm_lead_integrity.sql` — autoria, origem e consentimento imutáveis; limite no convite por e-mail.
+   - `20261105000700_crm_public_form_hardening.sql` — formulário só via servidor (CAPTCHA), limites atômicos e consentimento versionado.
+
+   Depois da `000700`, grave o SHA-256 do segredo do servidor (sem isso o formulário fica indisponível, por segurança):
+
+   ```sql
+   insert into crm_private.settings (key, value)
+   values ('form_gateway_sha256', encode(sha256(convert_to('<CRM_FORM_GATEWAY_SECRET>', 'UTF8')), 'hex'))
+   on conflict (key) do update set value = excluded.value;
+   ```
 
    Ou, com a CLI: `supabase link --project-ref <ref>` e `supabase db push`.
 3. Em **Authentication → URL Configuration**, defina o *Site URL* com o endereço do site
@@ -58,7 +69,10 @@ Abra `http://localhost:3000`. Sem configurar nada, o CRM abre em modo demonstra�
 [![Deploy na Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvlucidio-ui%2FAXBI-CRM-Gest-o-de-Leads-e-Convers-o-Comercial&env=NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY&envDescription=URL%20e%20chave%20p%C3%BAblica%20do%20Supabase&project-name=axbi-crm)
 
 1. Em [vercel.com](https://vercel.com), importe este repositório do GitHub (ou use o botão acima).
-2. Adicione as variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+2. Adicione as variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` e, para o formulário público,
+   `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` e `CRM_FORM_GATEWAY_SECRET` (gere com `openssl rand -hex 32`).
+   As duas últimas são segredos: nunca com prefixo `NEXT_PUBLIC_`. Crie o widget em Cloudflare → Turnstile
+   com os domínios do CRM e do site.
 3. Faça o deploy. Volte ao passo 1.3 com o domínio final.
 
 ### 3. Primeiro acesso
@@ -79,12 +93,16 @@ Depois de ativar o formulário em **Configurações**, cole no site, onde ele de
 ```
 
 - O formulário ajusta a altura sozinho e usa o `utm_campaign` da página como campanha (senão, o `data-campanha`).
-- Por segurança, só os sites listados podem exibir o formulário. O padrão é `axbiinteligencia.com.br` e seus subdomínios;
-  para outros, defina na Vercel `EMBED_ALLOWED_ORIGINS` (endereços separados por espaço, com `https://`) e faça um novo deploy.
+- Por segurança, só os sites listados podem exibir o formulário e enviar dados. O padrão é
+  `https://axbiinteligencia.com.br https://www.axbiinteligencia.com.br`; para outros, defina na Vercel `EMBED_ALLOWED_ORIGINS`
+  (origens exatas separadas por espaço, com `https://`; curingas como `https://*.dominio` são recusados) e faça um novo deploy.
 - O restante do CRM nunca pode ser exibido dentro de outro site.
-- Formulário próprio do site (ex.: seção de contato já existente): envie um `POST` para
-  `https://<projeto>.supabase.co/rest/v1/rpc/crm_submit_public_lead` com o cabeçalho `apikey: <chave pública>` e o corpo
-  `{p_slug, p_name, p_phone ou p_email, p_company, p_pain, p_notes, p_consent: true, p_consent_text, p_website: "", p_campaign}`.
+- Formulário próprio do site (ex.: seção de contato já existente): inclua o widget do Cloudflare Turnstile
+  (mesma chave do site, `data-action="public-lead"`) e envie um `POST` para `https://SEU-CRM/api/public-lead` com
+  `Content-Type: application/json` e o corpo
+  `{slug, name, phone ou email, company, pain, notes, consent: true, consentVersion, website: "", campaign, turnstileToken}`.
+  `consentVersion` e o texto oficial a exibir vêm de `crm_public_form_info(slug)` (`consent_version`, `consent_text`).
+  O envio direto para o Supabase com a chave pública deixou de funcionar (exige CAPTCHA validado no servidor).
 - Alternativa sem incorporar: um botão com link para `https://SEU-CRM/f/SLUG-DA-ORGANIZACAO?campanha=site`.
 
 ## Testes
@@ -95,7 +113,7 @@ npm run check:syntax   # sintaxe TS/TSX
 npm run typecheck      # tipos
 npm run lint
 npm run build
-npm run test:db        # migrations + RLS num Postgres DESCARTÁVEL (exige DATABASE_URL)
+npm run test:db        # migrations (com reversão), RLS, segurança e concorrência num Postgres DESCARTÁVEL (exige DATABASE_URL)
 npm run test:e2e       # navegador; exige o app rodando (npm start) e o pacote playwright
 ```
 
@@ -110,9 +128,14 @@ O GitHub Actions (`.github/workflows/ci.yml`) roda tudo isso a cada push e pull 
 
 - O navegador usa apenas a chave pública; toda a autorização é feita pelo RLS no banco.
 - Nunca coloque a `service_role` em variáveis `NEXT_PUBLIC_*` nem no código do navegador (há teste que verifica).
-- O visitante anônimo só consegue chamar `crm_public_form_info` e `crm_submit_public_lead`.
+- O visitante anônimo só consegue chamar `crm_public_form_info` e `crm_submit_public_lead`; o envio exige a chave do
+  servidor do CRM, que só a envia depois de validar o CAPTCHA.
+- Formulário: limites atômicos de 3 envios/dia por contato, 10/hora por IP (guardado como HMAC) e 60/hora por organização.
+- Consentimento: texto e versão oficiais no banco (`crm_consent_terms`); cada envio gera um registro em
+  `crm_consent_records`, que permanece (sem dados pessoais) se o lead for excluído a pedido do titular.
+- Autoria (`created_by`), data de criação, origem e consentimento de um lead não podem ser definidos nem alterados pela API.
 - Cabeçalhos de segurança configurados em `next.config.mjs`.
-- `crm_purge_form_submissions()` limpa o controle antispam com mais de 7 dias; agende com `pg_cron` se desejar.
+- Retenção: `crm_purge_form_submissions()` apaga o controle antispam (contato e IP pseudonimizados) com mais de 7 dias e `crm_purge_member_lookups()` o registro de convites com mais de 1 dia; agende ambos com `pg_cron`.
 
 ## Métricas
 
