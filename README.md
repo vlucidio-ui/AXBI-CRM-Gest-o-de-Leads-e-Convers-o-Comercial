@@ -68,6 +68,21 @@ Abra `http://localhost:3000`. Sem configurar nada, o CRM abre em modo demonstra�
 4. Em **Configurações**, ative o formulário público e informe o link da política de privacidade.
    O link do formulário aparece na mesma tela (aceita `?campanha=nome`).
 
+## Formulário no site da empresa
+
+Depois de ativar o formulário em **Configurações**, cole no site, onde ele deve aparecer:
+
+```html
+<div data-axbi-crm-form="SLUG-DA-ORGANIZACAO" data-campanha="site"></div>
+<script src="https://SEU-CRM/embed.js" async></script>
+```
+
+- O formulário ajusta a altura sozinho e usa o `utm_campaign` da página como campanha (senão, o `data-campanha`).
+- Por segurança, só os sites listados podem exibir o formulário. O padrão é `axbiinteligencia.com.br` e seus subdomínios;
+  para outros, defina na Vercel `EMBED_ALLOWED_ORIGINS` (endereços separados por espaço, com `https://`) e faça um novo deploy.
+- O restante do CRM nunca pode ser exibido dentro de outro site.
+- Alternativa sem incorporar: um botão com link para `https://SEU-CRM/f/SLUG-DA-ORGANIZACAO?campanha=site`.
+
 ## Testes
 
 ```bash
