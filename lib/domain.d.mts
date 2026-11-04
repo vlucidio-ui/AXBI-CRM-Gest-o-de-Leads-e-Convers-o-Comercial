@@ -1,7 +1,25 @@
-import type { Lead, Stage } from "./types";
+import type { Lead, Stage, Urgency } from "./types";
+export const STAGES: Stage[];
+export const URGENCIES: Urgency[];
+export const QUALIFIED_STAGES: Set<Stage>;
+export const CLOSED_STAGES: Set<Stage>;
+export const DECISION_STAGES: Set<Stage>;
+export const LEAD_FIELDS: (keyof Lead)[];
 export function localDate(date?: Date): string;
 export function createLeadId(randomUUID?: (() => string) | undefined): string;
-export function isLeadRecord(value: unknown, validStages: Stage[]): value is Lead;
+export function isLeadRecord(value: unknown, validStages?: Stage[]): value is Lead;
+export function emptyLead(now?: Date): Lead;
+export function validateLead(lead: Lead): string[];
 export function calculateMetrics(leads: Lead[]): { total: number; active: number; qualified: number; won: number; contracted: number; proposalValue: number; closeRate: number };
 export function filterLeads(leads: Lead[], query?: string, stage?: string): Lead[];
+export function followUps(leads: Lead[], today?: string): { lead: Lead; overdue: boolean; isToday: boolean }[];
+export function sourceBreakdown(leads: Lead[]): { source: string; total: number; won: number; contracted: number }[];
 export function leadsToCsv(leads: Lead[]): string;
+export type LeadRow = {
+  id: string; organization_id: string; name: string; company: string; email: string; phone: string;
+  segment: string; source: string; campaign: string; pain: string; urgency: Urgency;
+  decision_maker: boolean; estimated_value: number; stage: Stage; next_action: string;
+  next_action_date: string | null; notes: string; created_at?: string; updated_at?: string;
+};
+export function leadToRow(lead: Lead, organizationId: string): LeadRow;
+export function rowToLead(row: Partial<LeadRow> & { id: string; stage: Stage }): Lead;
