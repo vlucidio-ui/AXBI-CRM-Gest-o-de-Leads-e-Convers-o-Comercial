@@ -23,7 +23,14 @@ export function CloudCrm() {
   useEffect(() => {
     const supabase = getSupabase();
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      // Link de "Esqueci a senha" pode cair na página inicial: leva para a tela de nova senha.
+      if (event === "PASSWORD_RECOVERY") {
+        window.location.replace("/auth/redefinir-senha");
+        return;
+      }
+      setSession(s);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
