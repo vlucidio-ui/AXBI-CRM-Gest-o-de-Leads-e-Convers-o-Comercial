@@ -49,7 +49,15 @@ export function CrmApp({ repository, organization, header, team, settings }: Pro
     }
   }, [repository]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  // Carga inicial: o estado só muda quando a resposta chega (sem renderização em cascata).
+  useEffect(() => {
+    let cancelled = false;
+    repository.list().then(
+      list => { if (!cancelled) { setLeads(list); setError(""); setLoading(false); } },
+      err => { if (!cancelled) { setError(errorMessage(err)); setLoading(false); } }
+    );
+    return () => { cancelled = true; };
+  }, [repository]);
 
   const metrics = useMemo(() => calculateMetrics(leads), [leads]);
   const visible = useMemo(() => filterLeads(leads, query, stageFilter), [leads, query, stageFilter]);

@@ -19,7 +19,14 @@ export function TeamPanel({ organization, currentUserId }: { organization: Organ
     if (error) setError(errorMessage(error)); else setMembers((data ?? []) as Member[]);
   }, [organization.id]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    getSupabase().rpc("crm_list_members", { p_org: organization.id }).then(({ data, error }) => {
+      if (cancelled) return;
+      if (error) setError(errorMessage(error)); else setMembers((data ?? []) as Member[]);
+    });
+    return () => { cancelled = true; };
+  }, [organization.id]);
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
