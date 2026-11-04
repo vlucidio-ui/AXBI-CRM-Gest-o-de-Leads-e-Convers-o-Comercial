@@ -24,8 +24,9 @@ export function TeamPanel({ organization, currentUserId }: { organization: Organ
   async function add(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setMessage("");
-    const { error } = await getSupabase().rpc("crm_add_member_by_email", { p_org: organization.id, p_email: email, p_role: role });
+    const { data, error } = await getSupabase().rpc("crm_add_member_by_email", { p_org: organization.id, p_email: email, p_role: role });
     if (error) return setError(errorMessage(error));
+    if (data === "not_found") return setError("Usuário não encontrado. Peça para a pessoa criar a conta primeiro.");
     setMessage(`${email} agora faz parte da equipe.`);
     setEmail("");
     void load();
