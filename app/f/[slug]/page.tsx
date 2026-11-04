@@ -13,6 +13,18 @@ export default function PublicForm({ params }: { params: { slug: string } }) {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Dentro de um iframe (ex.: site da empresa): visual enxuto e altura informada ao site.
+  useEffect(() => {
+    if (window.self === window.top) return;
+    document.documentElement.classList.add("embedded");
+    const post = () => window.parent.postMessage(
+      { type: "axbi-crm-form-height", height: Math.ceil(document.body.getBoundingClientRect().height) }, "*");
+    const observer = new ResizeObserver(post);
+    observer.observe(document.body);
+    post();
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!supabaseEnabled) { setInfo(null); return; }
     getSupabase().rpc("crm_public_form_info", { p_slug: params.slug }).then(({ data }) => {
@@ -30,7 +42,8 @@ export default function PublicForm({ params }: { params: { slug: string } }) {
     setError("");
     if (!consent) return setError("Marque a autorização para enviar.");
     setBusy(true);
-    const campaign = new URLSearchParams(window.location.search).get("campanha") ?? "";
+    const query = new URLSearchParams(window.location.search);
+    const campaign = query.get("campanha") ?? query.get("utm_campaign") ?? "";
     const { error } = await getSupabase().rpc("crm_submit_public_lead", {
       p_slug: params.slug, p_name: form.name, p_email: form.email, p_phone: form.phone,
       p_company: form.company, p_pain: form.pain, p_consent: consent, p_consent_text: consentText,

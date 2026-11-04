@@ -115,3 +115,8 @@ tr:last-child td { border-bottom: 0; }
   .kpi { padding: 10px; }
   .kpi strong { font-size: 18px; }
 }
+
+/* Formulário público exibido dentro de outro site (iframe) */
+html.embedded, html.embedded body { background: transparent; margin: 0; }
+html.embedded .auth-page, html.embedded .center-screen { min-height: 0; padding: 0; display: block; }
+html.embedded .auth-card { width: 100%; max-width: none; box-shadow: none; border: 0; padding: 4px; }
