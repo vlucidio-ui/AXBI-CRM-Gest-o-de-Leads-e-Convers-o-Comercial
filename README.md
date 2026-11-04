@@ -44,6 +44,7 @@ Abra `http://localhost:3000`. Sem configurar nada, o CRM abre em modo demonstra�
    - `20261103000100_crm_initial_schema.sql` — tabela de leads.
    - `20261103000200_crm_tenant_security.sql` — organizações, membros, papéis, RLS e histórico.
    - `20261104000300_crm_public_form.sql` — formulário público, consentimento e limites.
+   - `20261104000400_crm_public_form_phone.sql` — formulário aceita WhatsApp ou e-mail e guarda informações extras (ex.: regime tributário).
 
    Ou, com a CLI: `supabase link --project-ref <ref>` e `supabase db push`.
 3. Em **Authentication → URL Configuration**, defina o *Site URL* com o endereço do site
@@ -81,6 +82,9 @@ Depois de ativar o formulário em **Configurações**, cole no site, onde ele de
 - Por segurança, só os sites listados podem exibir o formulário. O padrão é `axbiinteligencia.com.br` e seus subdomínios;
   para outros, defina na Vercel `EMBED_ALLOWED_ORIGINS` (endereços separados por espaço, com `https://`) e faça um novo deploy.
 - O restante do CRM nunca pode ser exibido dentro de outro site.
+- Formulário próprio do site (ex.: seção de contato já existente): envie um `POST` para
+  `https://<projeto>.supabase.co/rest/v1/rpc/crm_submit_public_lead` com o cabeçalho `apikey: <chave pública>` e o corpo
+  `{p_slug, p_name, p_phone ou p_email, p_company, p_pain, p_notes, p_consent: true, p_consent_text, p_website: "", p_campaign}`.
 - Alternativa sem incorporar: um botão com link para `https://SEU-CRM/f/SLUG-DA-ORGANIZACAO?campanha=site`.
 
 ## Testes
