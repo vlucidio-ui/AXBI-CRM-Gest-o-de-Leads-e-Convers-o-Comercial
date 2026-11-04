@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useParams } from "next/navigation";
 import { getSupabase, supabaseEnabled } from "@/lib/supabase";
 
 type Info = { name: string; privacy_policy_url: string | null; consent_text: string; consent_version: string };
@@ -13,7 +14,8 @@ declare global { interface Window { turnstile?: Turnstile } }
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 const TURNSTILE_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
-export default function PublicForm({ params }: { params: { slug: string } }) {
+export default function PublicForm() {
+  const params = useParams<{ slug: string }>();
   const [info, setInfo] = useState<Info | null | undefined>(undefined);
   const [form, setForm] = useState({ name: "", email: "", phone: "", company: "", pain: "", website: "" });
   const [consent, setConsent] = useState(false);
