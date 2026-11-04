@@ -100,10 +100,15 @@ select public.crm_submit_public_lead('acao-vendas','Zé Silva','ze@x.com','','',
 select public.crm_submit_public_lead('acao-vendas','Zé Silva','ZE@x.com','','','',true,'Aceito o tratamento dos meus dados.');
 select pg_temp.expect_error($q$select public.crm_submit_public_lead('acao-vendas','Zé Silva','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'quarto envio do mesmo e-mail no dia');
 select pg_temp.expect_error($q$select * from public.crm_form_submissions$q$, 'anônimo ler controle de envios');
+-- Site da AXBI: só WhatsApp (sem e-mail), com regime nas observações
+select public.crm_submit_public_lead('acao-vendas','João Site','','(62) 99999-0000','Loja','Margem',true,'Aceito o tratamento dos meus dados.','','site','Regime tributário: Lucro Presumido');
+select pg_temp.expect_error($q$select public.crm_submit_public_lead('acao-vendas','Sem Contato','','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio sem WhatsApp nem e-mail');
+select pg_temp.expect_error($q$select public.crm_submit_public_lead('acao-vendas','Tel Curto','','1234','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio com WhatsApp inválido');
 
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
-select pg_temp.expect((select count(*) from public.crm_leads where origin = 'public_form') = 3, 'leads do formulário chegaram (robô descartado)');
-select pg_temp.expect((select count(*) from public.crm_leads where origin = 'public_form' and consent_at is not null) = 3, 'consentimento registrado');
+select pg_temp.expect((select count(*) from public.crm_leads where origin = 'public_form') = 4, 'leads do formulário chegaram (robô descartado)');
+select pg_temp.expect((select count(*) from public.crm_leads where origin = 'public_form' and consent_at is not null) = 4, 'consentimento registrado');
+select pg_temp.expect((select notes from public.crm_leads where name = 'João Site') = 'Regime tributário: Lucro Presumido' and (select campaign from public.crm_leads where name = 'João Site') = 'site', 'lead só com WhatsApp, regime e campanha');
 
 select pg_temp.login('00000000-0000-0000-0000-00000000000b');
 select pg_temp.expect((select count(*) from public.crm_leads where origin = 'public_form') = 0, 'leads do formulário da A invisíveis para a B');
