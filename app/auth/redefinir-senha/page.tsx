@@ -33,7 +33,7 @@ export default function ResetPassword() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
-        <div className="brand"><span className="logo">AX</span><strong>AXBI CRM</strong></div>
+        <div className="brand"><span className="wordmark">AXBI</span><strong>CRM</strong></div>
         <h1>Nova senha</h1>
         {!supabaseEnabled && <div className="alert error">Supabase não configurado.</div>}
         {error && <div className="alert error" role="alert">{error}</div>}

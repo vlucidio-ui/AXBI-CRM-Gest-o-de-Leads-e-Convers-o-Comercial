@@ -119,9 +119,9 @@ export function CrmApp({ repository, organization, header, team, settings }: Pro
     <div className="shell">
       <header className="topbar">
         <div className="brand">
-          <span className="logo">AX</span>
+          <span className="wordmark">AXBI</span>
           <div>
-            <strong>AXBI CRM</strong>
+            <strong>CRM</strong>
             <small>{organization ? organization.name : "Gestão de leads e conversão comercial"}</small>
           </div>
         </div>
@@ -263,7 +263,7 @@ export function CrmApp({ repository, organization, header, team, settings }: Pro
                   <button className="link" onClick={() => open(lead)}>{lead.name}</button>
                   <span className="muted">{lead.company}</span>
                   <span>{lead.nextAction || "Sem ação definida"}</span>
-                  <span className="pill">{overdue ? "Atrasado" : isToday ? "Hoje" : lead.stage}</span>
+                  <span className={`pill ${overdue ? "pill-late" : isToday ? "pill-today" : ""}`}>{overdue ? "Atrasado" : isToday ? "Hoje" : lead.stage}</span>
                 </li>
               ))}
             </ul>

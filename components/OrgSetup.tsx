@@ -20,7 +20,7 @@ export function OrgSetup({ email, onCreated, onLogout }: { email: string; onCrea
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
-        <div className="brand"><span className="logo">AX</span><strong>AXBI CRM</strong></div>
+        <div className="brand"><span className="wordmark">AXBI</span><strong>CRM</strong></div>
         <h1>Criar sua organização</h1>
         <p className="muted">Você entrou como {email}. Crie a organização da sua empresa ou peça para um administrador adicionar você à equipe dele.</p>
         {error && <div className="alert error" role="alert">{error}</div>}
