@@ -27,6 +27,11 @@ export function AuthScreen() {
           email, password, options: { emailRedirectTo: window.location.origin }
         });
         if (error) throw error;
+        // O Supabase não revela se o e-mail já existe: devolve um usuário sem identidades.
+        if (data.user && data.user.identities?.length === 0) {
+          setMode("login");
+          throw new Error("Este e-mail já tem conta. Entre com sua senha ou use \"Esqueci a senha\".");
+        }
         if (!data.session) setMessage("Conta criada. Enviamos um link de confirmação para o seu e-mail.");
       } else {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -36,7 +41,10 @@ export function AuthScreen() {
         setMessage("Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.");
       }
     } catch (err) {
-      setError(errorMessage(err));
+      const msg = errorMessage(err);
+      setError(mode === "login" && msg === "E-mail ou senha incorretos."
+        ? "E-mail ou senha incorretos. Se não lembra a senha, clique em \"Esqueci a senha\"."
+        : msg);
     } finally {
       setBusy(false);
     }
