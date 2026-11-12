@@ -30,6 +30,7 @@ jobs:
           npm start &
           npx --yes wait-on@8.0.1 http://localhost:3000
           npm run test:e2e
+          npm run test:e2e:diag
 
   database:
     runs-on: ubuntu-latest

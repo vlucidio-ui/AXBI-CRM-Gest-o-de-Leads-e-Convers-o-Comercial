@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { errorMessage, getSupabase } from "@/lib/supabase";
 import type { Organization } from "@/lib/types";
 
@@ -9,15 +9,28 @@ export function SettingsPanel({ organization, onChanged }: { organization: Organ
   const [name, setName] = useState(organization.name);
   const [enabled, setEnabled] = useState(organization.publicFormEnabled);
   const [privacyUrl, setPrivacyUrl] = useState("");
+  const [privacyVersion, setPrivacyVersion] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const formUrl = typeof window !== "undefined" ? `${window.location.origin}/f/${organization.slug}` : "";
 
+  // Carrega o link e a versão da política de privacidade já salvos.
+  useEffect(() => {
+    let cancelled = false;
+    getSupabase().from("crm_organizations").select("privacy_policy_url, privacy_policy_version").eq("id", organization.id).single()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setPrivacyUrl(data.privacy_policy_url ?? "");
+        setPrivacyVersion(data.privacy_policy_version ?? "");
+      });
+    return () => { cancelled = true; };
+  }, [organization.id]);
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(""); setMessage("");
-    const patch: Record<string, unknown> = { name, public_form_enabled: enabled };
-    if (privacyUrl) patch.privacy_policy_url = privacyUrl;
+    const patch = { name, public_form_enabled: enabled, privacy_policy_url: privacyUrl.trim() || null,
+      privacy_policy_version: privacyVersion.trim() || null };
     const { error } = await getSupabase().from("crm_organizations").update(patch).eq("id", organization.id);
     if (error) return setError(errorMessage(error));
     setMessage("Configurações salvas.");
@@ -40,6 +53,10 @@ export function SettingsPanel({ organization, onChanged }: { organization: Organ
         <label className="field"><span>Link da política de privacidade (https://...)</span>
           <input type="url" pattern="https://.*" placeholder="https://suaempresa.com.br/privacidade" value={privacyUrl}
             onChange={e => setPrivacyUrl(e.target.value)} disabled={!canManage} />
+        </label>
+        <label className="field"><span>Versão da política de privacidade (ex.: 2026-11)</span>
+          <input value={privacyVersion} onChange={e => setPrivacyVersion(e.target.value)} disabled={!canManage} maxLength={40} placeholder="2026-11" />
+          <span className="muted small">Fica registrada em cada consentimento do formulário público, junto com o texto aceito.</span>
         </label>
         {canManage && <button className="button primary">Salvar</button>}
       </form>

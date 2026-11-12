@@ -2,28 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, CalendarClock, Download, KanbanSquare, LayoutDashboard, List, Plus,
+  AlertTriangle, CalendarClock, ClipboardList, Download, KanbanSquare, LayoutDashboard, List, Plus,
   Search, Settings, Share2, Trash2, Users
 } from "lucide-react";
 import {
   calculateMetrics, createLeadId, emptyLead, filterLeads, followUps, leadsToCsv, localDate, sourceBreakdown
 } from "@/lib/domain.mjs";
+import type { DiagnosticRepository } from "@/lib/diagRepository";
 import type { LeadRepository } from "@/lib/repository";
 import { errorMessage } from "@/lib/supabase";
 import { formatDate, money, stages, type Lead, type Organization, type Stage } from "@/lib/types";
+import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import { LeadForm } from "./LeadForm";
 
-type Tab = "dashboard" | "pipeline" | "leads" | "followups" | "sources" | "team" | "settings";
+type Tab = "dashboard" | "pipeline" | "leads" | "followups" | "sources" | "diagnostics" | "team" | "settings";
 
 type Props = {
   repository: LeadRepository;
+  diagnostics?: DiagnosticRepository;
   organization?: Organization;
   header?: React.ReactNode;
   team?: React.ReactNode;
   settings?: React.ReactNode;
 };
 
-export function CrmApp({ repository, organization, header, team, settings }: Props) {
+export function CrmApp({ repository, diagnostics, organization, header, team, settings }: Props) {
   const role = organization?.role ?? "owner";
   const canEdit = role !== "viewer";
   const canDelete = role === "owner" || role === "admin";
@@ -49,7 +52,15 @@ export function CrmApp({ repository, organization, header, team, settings }: Pro
     }
   }, [repository]);
 
-  useEffect(() => { void reload(); }, [reload]);
+  // Carga inicial: o estado só muda quando a resposta chega (sem renderização em cascata).
+  useEffect(() => {
+    let cancelled = false;
+    repository.list().then(
+      list => { if (!cancelled) { setLeads(list); setError(""); setLoading(false); } },
+      err => { if (!cancelled) { setError(errorMessage(err)); setLoading(false); } }
+    );
+    return () => { cancelled = true; };
+  }, [repository]);
 
   const metrics = useMemo(() => calculateMetrics(leads), [leads]);
   const visible = useMemo(() => filterLeads(leads, query, stageFilter), [leads, query, stageFilter]);
@@ -109,6 +120,7 @@ export function CrmApp({ repository, organization, header, team, settings }: Pro
     { id: "leads", label: "Leads", icon: <List size={16} /> },
     { id: "followups", label: "Follow-ups", icon: <CalendarClock size={16} />, badge: overdueCount || undefined },
     { id: "sources", label: "Origens", icon: <Share2 size={16} /> },
+    ...(diagnostics ? [{ id: "diagnostics" as Tab, label: "Diagnósticos", icon: <ClipboardList size={16} /> }] : []),
     ...(team ? [{ id: "team" as Tab, label: "Equipe", icon: <Users size={16} /> }] : []),
     ...(settings ? [{ id: "settings" as Tab, label: "Configurações", icon: <Settings size={16} /> }] : [])
   ];
@@ -291,6 +303,7 @@ export function CrmApp({ repository, organization, header, team, settings }: Pro
           </section>
         )}
 
+        {tab === "diagnostics" && diagnostics && <DiagnosticsPanel repository={diagnostics} leads={leads} role={role} />}
         {tab === "team" && team}
         {tab === "settings" && settings}
       </main>

@@ -2,8 +2,11 @@
 
 import { CloudCrm } from "@/components/CloudCrm";
 import { CrmApp } from "@/components/CrmApp";
+import { memoryDiagnosticRepository } from "@/lib/diagRepository";
 import { localRepository } from "@/lib/repository";
 import { supabaseEnabled } from "@/lib/supabase";
+
+const demoDiagnostics = memoryDiagnosticRepository();
 
 export default function Home() {
   if (supabaseEnabled) return <CloudCrm />;
@@ -12,7 +15,7 @@ export default function Home() {
       <div className="demo-banner" role="note">
         Modo demonstração: os dados ficam só neste navegador. Configure o Supabase para usar com equipe e dados reais.
       </div>
-      <CrmApp repository={localRepository} />
+      <CrmApp repository={localRepository} diagnostics={demoDiagnostics} />
     </>
   );
 }

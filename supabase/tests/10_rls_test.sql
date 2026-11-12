@@ -28,6 +28,20 @@ begin
 end $$;
 grant execute on all functions in schema pg_temp to anon, authenticated;
 
+-- Chave de gateway de TESTE (o servidor do CRM prova que validou o CAPTCHA). Nunca use em produção.
+insert into crm_private.settings (key, value)
+values ('form_gateway_sha256', encode(sha256(convert_to('chave-de-teste-gateway-0123456789abcdef', 'UTF8')), 'hex'));
+-- Envio como o servidor do CRM faria: versão vigente do termo, chave de gateway e IP (HMAC) distinto.
+-- O texto de consentimento do navegador (p_consent_text) é ignorado pelo banco.
+create or replace function pg_temp.enviar(p_slug text, p_name text, p_email text, p_phone text, p_company text,
+  p_pain text, p_consent boolean, p_consent_text text, p_website text default '', p_campaign text default '',
+  p_notes text default '') returns boolean language sql as $f$
+  select public.crm_submit_public_lead(p_slug, p_name, p_email, p_phone, p_company, p_pain, p_consent,
+    (select i.consent_version from public.crm_public_form_info(p_slug) i), p_website, p_campaign, p_notes,
+    'chave-de-teste-gateway-0123456789abcdef', encode(sha256(convert_to(gen_random_uuid()::text, 'UTF8')), 'hex'))
+$f$;
+grant execute on all functions in schema pg_temp to anon, authenticated;
+
 -- Ana cria a organização A; Bruno cria a B.
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
 create temp table ids as select public.crm_create_organization('Ação Vendas') as org_a;
@@ -85,25 +99,25 @@ select pg_temp.expect_error($q$select * from public.crm_leads$q$, 'anônimo ler 
 select pg_temp.expect_error($q$select * from public.crm_organizations$q$, 'anônimo ler organizações');
 select pg_temp.expect_error($q$select public.crm_create_organization('anon org')$q$, 'anônimo criar organização');
 select pg_temp.expect((select count(*) from public.crm_public_form_info('acao-vendas')) = 0, 'formulário desativado não aparece');
-select pg_temp.expect_error($q$select public.crm_submit_public_lead('acao-vendas','Zé','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio com formulário desativado');
+select pg_temp.expect_error($q$select pg_temp.enviar('acao-vendas','Zé','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio com formulário desativado');
 
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
 update public.crm_organizations set public_form_enabled = true;
 
 select pg_temp.login(null);
 select pg_temp.expect((select name from public.crm_public_form_info('acao-vendas')) = 'Ação Vendas', 'formulário ativo aparece');
-select pg_temp.expect_error($q$select public.crm_submit_public_lead('acao-vendas','Zé','ze@x.com','','','',false,'Aceito o tratamento dos meus dados.')$q$, 'envio sem consentimento');
-select pg_temp.expect_error($q$select public.crm_submit_public_lead('acao-vendas','Zé','email-invalido','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio com e-mail inválido');
-select public.crm_submit_public_lead('acao-vendas','Robô','bot@x.com','','','',true,'Aceito o tratamento dos meus dados.','http://spam');
-select public.crm_submit_public_lead('acao-vendas','Zé Silva','ze@x.com','11999990000','Padaria','Quero vender mais',true,'Aceito o tratamento dos meus dados.');
-select public.crm_submit_public_lead('acao-vendas','Zé Silva','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.');
-select public.crm_submit_public_lead('acao-vendas','Zé Silva','ZE@x.com','','','',true,'Aceito o tratamento dos meus dados.');
-select pg_temp.expect_error($q$select public.crm_submit_public_lead('acao-vendas','Zé Silva','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'quarto envio do mesmo e-mail no dia');
+select pg_temp.expect_error($q$select pg_temp.enviar('acao-vendas','Zé','ze@x.com','','','',false,'Aceito o tratamento dos meus dados.')$q$, 'envio sem consentimento');
+select pg_temp.expect_error($q$select pg_temp.enviar('acao-vendas','Zé','email-invalido','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio com e-mail inválido');
+select pg_temp.enviar('acao-vendas','Robô','bot@x.com','','','',true,'Aceito o tratamento dos meus dados.','http://spam');
+select pg_temp.enviar('acao-vendas','Zé Silva','ze@x.com','11999990000','Padaria','Quero vender mais',true,'Aceito o tratamento dos meus dados.');
+select pg_temp.enviar('acao-vendas','Zé Silva','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.');
+select pg_temp.enviar('acao-vendas','Zé Silva','ZE@x.com','','','',true,'Aceito o tratamento dos meus dados.');
+select pg_temp.expect_error($q$select pg_temp.enviar('acao-vendas','Zé Silva','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'quarto envio do mesmo e-mail no dia');
 select pg_temp.expect_error($q$select * from public.crm_form_submissions$q$, 'anônimo ler controle de envios');
 -- Site da AXBI: só WhatsApp (sem e-mail), com regime nas observações
-select public.crm_submit_public_lead('acao-vendas','João Site','','(62) 99999-0000','Loja','Margem',true,'Aceito o tratamento dos meus dados.','','site','Regime tributário: Lucro Presumido');
-select pg_temp.expect_error($q$select public.crm_submit_public_lead('acao-vendas','Sem Contato','','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio sem WhatsApp nem e-mail');
-select pg_temp.expect_error($q$select public.crm_submit_public_lead('acao-vendas','Tel Curto','','1234','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio com WhatsApp inválido');
+select pg_temp.enviar('acao-vendas','João Site','','(62) 99999-0000','Loja','Margem',true,'Aceito o tratamento dos meus dados.','','site','Regime tributário: Lucro Presumido');
+select pg_temp.expect_error($q$select pg_temp.enviar('acao-vendas','Sem Contato','','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio sem WhatsApp nem e-mail');
+select pg_temp.expect_error($q$select pg_temp.enviar('acao-vendas','Tel Curto','','1234','','',true,'Aceito o tratamento dos meus dados.')$q$, 'envio com WhatsApp inválido');
 
 select pg_temp.login('00000000-0000-0000-0000-00000000000a');
 select pg_temp.expect((select count(*) from public.crm_leads where origin = 'public_form') = 4, 'leads do formulário chegaram (robô descartado)');
