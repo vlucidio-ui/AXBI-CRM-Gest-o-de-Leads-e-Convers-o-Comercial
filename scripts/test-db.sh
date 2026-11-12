@@ -15,7 +15,7 @@ aplicar() { for f in supabase/migrations/*.sql; do "${PSQL[@]}" -f "$f"; done; }
 recriar; aplicar
 for f in $(ls supabase/rollback/*.down.sql | sort -r); do "${PSQL[@]}" -f "$f"; done
 "${PSQL[@]}" -f supabase/migrations/20261104000400_crm_public_form_phone.sql
-for f in supabase/migrations/2026110500*.sql; do "${PSQL[@]}" -f "$f"; done
+for f in supabase/migrations/2026110500*.sql supabase/migrations/20261112*.sql; do "${PSQL[@]}" -f "$f"; done
 echo "ok: migrations de endurecimento revertidas e reaplicadas"
 
 # 2. Banco limpo para os testes de comportamento.
@@ -23,4 +23,5 @@ recriar
 for f in supabase/migrations/*.sql; do echo "Aplicando $f"; "${PSQL[@]}" -f "$f"; done
 "${PSQL[@]}" -o /dev/null -f supabase/tests/10_rls_test.sql
 "${PSQL[@]}" -o /dev/null -f supabase/tests/20_security_test.sql
+"${PSQL[@]}" -o /dev/null -f supabase/tests/40_diagnostics_test.sql
 bash supabase/tests/30_concurrency_test.sh "$DATABASE_URL"

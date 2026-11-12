@@ -1,6 +1,6 @@
-# AXBI CRM — V1.2
+# AXBI CRM — V1.3
 
-CRM comercial da AXBI Negócios Inteligentes: Next.js 14, React 18 e Supabase (Auth + PostgreSQL com RLS).
+CRM comercial da AXBI Negócios Inteligentes: Next.js 16, React 19 e Supabase (Auth + PostgreSQL com RLS).
 
 ## Funcionalidades
 
@@ -15,6 +15,7 @@ CRM comercial da AXBI Negócios Inteligentes: Next.js 14, React 18 e Supabase (A
 - **Organizações e equipe** com papéis: Proprietário, Administrador, Vendedor e Somente leitura.
 - **Isolamento por organização** garantido no banco (RLS) e histórico de mudança de etapa.
 - **Formulário público** de captação (`/f/<slug>`) com consentimento LGPD registrado, campo-armadilha antispam e limites de envio.
+- **Diagnósticos contábeis automáticos** a partir das escriturações do cliente (ECF e ECD do SPED): DRE anual e trimestral, balanço, indicadores com semáforo, conciliação ECD × ECF, achados, plano de ação, planilha `.xlsx` e relatório para impressão/PDF. Detalhes em [Diagnósticos](#diagnósticos).
 - Layout responsivo.
 
 ## Dois modos de execução
@@ -48,6 +49,8 @@ Abra `http://localhost:3000`. Sem configurar nada, o CRM abre em modo demonstra�
    - `20261105000500_crm_privileges_hardening.sql` — menor privilégio (sem TRUNCATE/TRIGGER/REFERENCES para a API).
    - `20261105000600_crm_lead_integrity.sql` — autoria, origem e consentimento imutáveis; limite no convite por e-mail.
    - `20261105000700_crm_public_form_hardening.sql` — formulário só via servidor (CAPTCHA), limites atômicos e consentimento versionado.
+   - `20261112000800_crm_diagnostics.sql` — diagnósticos contábeis (RLS, resultado imutável, fluxo de aprovação).
+   - `20261112000900_crm_maintenance_schedule.sql` — agenda as rotinas de limpeza `crm-send-control` e `crm-invite-control` (pg_cron).
 
    Depois da `000700`, grave o SHA-256 do segredo do servidor (sem isso o formulário fica indisponível, por segurança):
 
@@ -105,6 +108,28 @@ Depois de ativar o formulário em **Configurações**, cole no site, onde ele de
   O envio direto para o Supabase com a chave pública deixou de funcionar (exige CAPTCHA validado no servidor).
 - Alternativa sem incorporar: um botão com link para `https://SEU-CRM/f/SLUG-DA-ORGANIZACAO?campanha=site`.
 
+## Diagnósticos
+
+Aba **Diagnósticos** do CRM. Fluxo: selecionar os arquivos `.txt` da ECF e da ECD (um ou mais anos) → conferir a prévia → salvar como rascunho → enviar para revisão → aprovação por proprietário ou administrador.
+
+| Camada | O que faz | Onde |
+|---|---|---|
+| Leitura | Lê ECF (`0000`, `P030/L030`, `P100/L100`, `P150/L300`) e ECD (`0000`, `I050`, `I150/I155`, `I350/I355`, `J100`, `J150`), guardando a linha de origem de cada registro | `lib/diag/sped.mjs` |
+| Cálculo | DRE, balanço, indicadores, conciliação, lucro mensal, achados e plano de ação | `lib/diag/engine.mjs` |
+| Entrega | Planilha `.xlsx` de 13 abas e relatório na tela (imprimir / salvar em PDF) | `lib/diag/workbook.mjs`, `components/DiagnosticView.tsx` |
+
+Regras do motor (AXBI-DIAG-CORE):
+
+- **Determinístico e sem IA:** mesma entrada, mesma saída. Valores em centavos inteiros, sem ponto flutuante.
+- **Nada é estimado:** rubrica não localizada sai como `n/d` e vira achado; EBITDA não é apurado.
+- **Rastreável:** cada arquivo entra no inventário com SHA-256, e a aba `11_Trilha` mostra de que linha saiu cada rubrica.
+- **Os arquivos não saem do computador:** a leitura é feita no navegador e o banco guarda só o resultado calculado.
+- **Revisão humana obrigatória:** todo diagnóstico nasce como rascunho (com tarja no relatório). O banco impede alterar o resultado, pular a revisão ou mexer em diagnóstico aprovado; recalcular gera um novo registro.
+
+Limites atuais: validado com arquivos fictícios gerados em `tests/fixtures/sped.mjs` — **antes de usar com cliente, confira um diagnóstico contra um caso já conhecido**. Não cobre ainda EFD-Contribuições, EFD ICMS/IPI, recálculo de IRPJ/CSLL, pagamentos (DARF/DCTF) nem rastreabilidade de lucros distribuídos. No Lucro Real com balancetes mensais de estimativa, só o período anual (`A00`) é usado.
+
+**Nunca coloque arquivos reais de clientes neste repositório** (ele é público): os testes usam só dados inventados.
+
 ## Testes
 
 ```bash
@@ -114,7 +139,8 @@ npm run typecheck      # tipos
 npm run lint
 npm run build
 npm run test:db        # migrations (com reversão), RLS, segurança e concorrência num Postgres DESCARTÁVEL (exige DATABASE_URL)
-npm run test:e2e       # navegador; exige o app rodando (npm start) e o pacote playwright
+npm run test:e2e
+npm run test:e2e:diag       # navegador; exige o app rodando (npm start) e o pacote playwright
 ```
 
 `test:db` apaga e recria o schema do banco apontado por `DATABASE_URL`. **Nunca** aponte para o Supabase.
@@ -135,7 +161,7 @@ O GitHub Actions (`.github/workflows/ci.yml`) roda tudo isso a cada push e pull 
   `crm_consent_records`, que permanece (sem dados pessoais) se o lead for excluído a pedido do titular.
 - Autoria (`created_by`), data de criação, origem e consentimento de um lead não podem ser definidos nem alterados pela API.
 - Cabeçalhos de segurança configurados em `next.config.mjs`.
-- Retenção: `crm_purge_form_submissions()` apaga o controle antispam (contato e IP pseudonimizados) com mais de 7 dias e `crm_purge_member_lookups()` o registro de convites com mais de 1 dia; agende ambos com `pg_cron`.
+- Retenção: `crm_purge_form_submissions()` apaga o controle antispam (contato e IP pseudonimizados) com mais de 7 dias e `crm_purge_member_lookups()` o registro de convites com mais de 1 dia; a migration `000900` agenda ambos com `pg_cron` (`crm-send-control` e `crm-invite-control`).
 
 ## Métricas
 
