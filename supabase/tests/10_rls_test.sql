@@ -112,7 +112,22 @@ select pg_temp.enviar('acao-vendas','Robô','bot@x.com','','','',true,'Aceito o 
 select pg_temp.enviar('acao-vendas','Zé Silva','ze@x.com','11999990000','Padaria','Quero vender mais',true,'Aceito o tratamento dos meus dados.');
 select pg_temp.enviar('acao-vendas','Zé Silva','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.');
 select pg_temp.enviar('acao-vendas','Zé Silva','ZE@x.com','','','',true,'Aceito o tratamento dos meus dados.');
-select pg_temp.expect_error($q$select pg_temp.enviar('acao-vendas','Zé Silva','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.')$q$, 'quarto envio do mesmo e-mail no dia');
+do $$ declare m text; begin
+  begin
+    perform pg_temp.enviar('acao-vendas','Zé Silva','ze@x.com','','','',true,'Aceito o tratamento dos meus dados.');
+    raise exception 'FALHA: quarto envio aceito';
+  exception when sqlstate 'P0001' then
+    get stacked diagnostics m = message_text;
+    if m is distinct from 'Recebemos seus dados. Aguarde nosso contato.' then raise exception 'FALHA: mensagem inesperada: %', m; end if;
+    raise notice 'ok: quarto envio rejeitado com P0001 e mensagem de limite';
+  end;
+end $$;
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+do $$ begin
+  if (select count(*) from public.crm_leads where origin='public_form' and lower(email)='ze@x.com') <> 3 then raise exception 'FALHA: leads do e-mail != 3'; end if;
+  raise notice 'ok: quarto envio não criou lead';
+end $$;
+select pg_temp.login(null);
 select pg_temp.expect_error($q$select * from public.crm_form_submissions$q$, 'anônimo ler controle de envios');
 -- Site da AXBI: só WhatsApp (sem e-mail), com regime nas observações
 select pg_temp.enviar('acao-vendas','João Site','','(62) 99999-0000','Loja','Margem',true,'Aceito o tratamento dos meus dados.','','site','Regime tributário: Lucro Presumido');
@@ -126,6 +141,9 @@ select pg_temp.expect((select notes from public.crm_leads where name = 'João Si
 
 select pg_temp.login('00000000-0000-0000-0000-00000000000b');
 select pg_temp.expect((select count(*) from public.crm_leads where origin = 'public_form') = 0, 'leads do formulário da A invisíveis para a B');
+
+select pg_temp.login('00000000-0000-0000-0000-00000000000a');
+do $$ begin if (select count(*) from public.crm_consent_records) <> 4 then raise exception 'FALHA: registros de consentimento != 4'; end if; raise notice 'ok: 4 registros de consentimento (3 do e-mail + 1 do WhatsApp)'; end $$;
 
 reset role;
 \echo 'TODOS OS TESTES DE BANCO PASSARAM'

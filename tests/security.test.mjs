@@ -127,6 +127,14 @@ test("erros do banco: só mensagens de validação chegam ao visitante", async (
   assert.equal(gateway.status, 503);
 });
 
+test("quarto envio do mesmo e-mail em 24 h: HTTP 400 com a mensagem de limite por contato", async () => {
+  const quarto = await run({ payload: payload({ email: "ze@x.com", phone: "" }) },
+    fakeFetch({ rpc: { status: 400, body: { code: "P0001", message: "Recebemos seus dados. Aguarde nosso contato." } } }));
+  assert.equal(quarto.status, 400);
+  assert.equal(quarto.body.error, "Recebemos seus dados. Aguarde nosso contato.");
+  assert.equal(quarto.body.ok, false);
+});
+
 test("segredos nunca em variáveis públicas nem no código do navegador", () => {
   const env = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
   for (const line of env.split("\n").filter(l => l.startsWith("NEXT_PUBLIC_"))) {
